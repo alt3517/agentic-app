@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="510" viewBox="0 0 1200 510" role="img" aria-labelledby="title desc">
+  <title id="title">Authorized AI assistance request flow</title>
+  <desc id="desc">The signed-in browser requests a short-lived token from MVC, sends an AI request to FastAPI, which retrieves authorized ticket context through MVC. Local RAG searches Qdrant and SQLite. An optional provider call requires explicit sharing settings. Suggestions return to a human for review and are not written automatically.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08172c"/>
+      <stop offset="1" stop-color="#142f4d"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="9" stdDeviation="10" flood-color="#020617" flood-opacity=".3"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#8bb4d7"/></marker>
+    <style>
+      .h { font: 700 30px 'Segoe UI',Arial,sans-serif; fill:#f8fafc }
+      .sub { font: 400 15px 'Segoe UI',Arial,sans-serif; fill:#a9c2da }
+      .title { font: 700 18px 'Segoe UI',Arial,sans-serif; fill:#f8fafc }
+      .text { font: 400 14px 'Segoe UI',Arial,sans-serif; fill:#d7e5f2 }
+      .small { font: 600 12px 'Segoe UI',Arial,sans-serif; fill:#a9c2da; letter-spacing:1px }
+      .line { fill:none; stroke:#8bb4d7; stroke-width:2.5; marker-end:url(#arrow) }
+      .dash { fill:none; stroke:#93a6bc; stroke-width:2; stroke-dasharray:7 7; marker-end:url(#arrow) }
+    </style>
+  </defs>
+  <rect width="1200" height="510" rx="28" fill="url(#bg)"/>
+  <text x="52" y="58" class="h">An AI request with boundaries</text>
+  <text x="54" y="86" class="sub">Authentication, retrieval, generation, and human review are separate steps</text>
+
+  <g filter="url(#shadow)">
+    <rect x="50" y="155" width="205" height="176" rx="18" fill="#132b46" stroke="#3b5875"/>
+    <rect x="50" y="155" width="205" height="8" rx="4" fill="url(#a)"/>
+    <text x="72" y="197" class="small">01 · MVC IDENTITY</text>
+    <text x="72" y="231" class="title">Signed-in user</text>
+    <text x="72" y="261" class="text">Anti-forgery-protected</text>
+    <text x="72" y="283" class="text">token endpoint</text>
+    <text x="72" y="311" class="text">5-minute signed JWT</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="330" y="155" width="205" height="176" rx="18" fill="#132b46" stroke="#3b5875"/>
+    <rect x="330" y="155" width="205" height="8" rx="4" fill="url(#b)"/>
+    <text x="352" y="197" class="small">02 · AI API</text>
+    <text x="352" y="231" class="title">FastAPI</text>
+    <text x="352" y="261" class="text">Validates signature, issuer,</text>
+    <text x="352" y="283" class="text">audience, expiry, and role</text>
+    <text x="352" y="311" class="text">Checks sharing opt-ins</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="610" y="155" width="205" height="176" rx="18" fill="#132b46" stroke="#3b5875"/>
+    <rect x="610" y="155" width="205" height="8" rx="4" fill="#14b8a6"/>
+    <text x="632" y="197" class="small">03 · CONTEXT</text>
+    <text x="632" y="231" class="title">Authorized sources</text>
+    <text x="632" y="261" class="text">MVC ticket API applies</text>
+    <text x="632" y="283" class="text">ticket visibility rules</text>
+    <text x="632" y="311" class="text">RAG searches locally</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="890" y="155" width="250" height="176" rx="18" fill="#132b46" stroke="#3b5875"/>
+    <rect x="890" y="155" width="250" height="8" rx="4" fill="#f59e0b"/>
+    <text x="912" y="197" class="small">04 · OPTIONAL GENERATION</text>
+    <text x="912" y="231" class="title">Model provider</text>
+    <text x="912" y="261" class="text">Only enabled data flows</text>
+    <text x="912" y="283" class="text">are sent for generation</text>
+    <text x="912" y="311" class="text">store=false is not zero retention</text>
+  </g>
+  <path d="M255 240H322" class="line"/>
+  <path d="M535 240H602" class="line"/>
+  <path d="M815 240H882" class="line"/>
+  <text x="263" y="222" class="small">JWT</text>
+  <text x="545" y="222" class="small">AUTHORIZED</text>
+  <text x="820" y="222" class="small">OPT-IN</text>
+
+  <rect x="330" y="388" width="810" height="67" rx="16" fill="#173958" stroke="#365c7d"/>
+  <text x="356" y="416" class="small">05 · HUMAN REVIEW</text>
+  <text x="356" y="441" class="text">Suggestions and cited sources return to the user. Copilot does not update a ticket or send a draft reply.</text>
+  <path d="M1015 331V360H440V380" class="dash"/>
+</svg>

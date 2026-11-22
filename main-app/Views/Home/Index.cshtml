@@ -1,0 +1,80 @@
+@{
+    ViewData["Title"] = "Service Desk";
+}
+
+<section class="home-hero">
+    <div>
+        <span class="eyebrow">Support, made clear</span>
+        <h1>A better way to get support.</h1>
+        <p class="home-hero-copy">
+            Create a request, follow its progress, and keep every update in one place.
+            No more wondering what happens next.
+        </p>
+        <div class="home-hero-actions">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-controller="Tickets" asp-action="Index" class="btn btn-primary">View my tickets</a>
+                <a asp-controller="Tickets" asp-action="Create" class="btn btn-outline-primary">Create a request</a>
+            }
+            else
+            {
+                <a asp-controller="Account" asp-action="Register" class="btn btn-primary">Create an account</a>
+                <a asp-controller="Account" asp-action="Login" class="btn btn-outline-primary">Sign in</a>
+            }
+        </div>
+    </div>
+    <div class="home-preview" aria-label="Illustration of the ticket workspace">
+        <div class="preview-topbar">
+            <div class="preview-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="preview-label">YOUR SUPPORT WORKSPACE</span>
+        </div>
+        <div class="preview-ticket">
+            <span class="preview-ticket-icon" aria-hidden="true">01</span>
+            <div>
+                <p class="preview-ticket-title">Request received</p>
+                <p class="preview-ticket-meta">Your team has the details</p>
+            </div>
+            <span class="preview-ticket-state">New</span>
+        </div>
+        <div class="preview-ticket">
+            <span class="preview-ticket-icon" aria-hidden="true">02</span>
+            <div>
+                <p class="preview-ticket-title">Progress stays visible</p>
+                <p class="preview-ticket-meta">Updates in one place</p>
+            </div>
+            <span class="preview-ticket-state">Tracked</span>
+        </div>
+        <div class="preview-ticket">
+            <span class="preview-ticket-icon" aria-hidden="true">03</span>
+            <div>
+                <p class="preview-ticket-title">Resolution, documented</p>
+                <p class="preview-ticket-meta">A clear history to refer to</p>
+            </div>
+            <span class="preview-ticket-state">Done</span>
+        </div>
+    </div>
+</section>
+
+<section aria-labelledby="how-it-works">
+    <div class="page-intro">
+        <span class="eyebrow">Simple by design</span>
+        <h2 id="how-it-works">Everything your request needs</h2>
+    </div>
+    <div class="home-features">
+        <article class="home-feature">
+            <span class="feature-index" aria-hidden="true">01</span>
+            <h2>Tell us what you need</h2>
+            <p>Share the details once and keep your request easy to find.</p>
+        </article>
+        <article class="home-feature">
+            <span class="feature-index" aria-hidden="true">02</span>
+            <h2>Follow every update</h2>
+            <p>See the latest status, priority, and ownership from your ticket.</p>
+        </article>
+        <article class="home-feature">
+            <span class="feature-index" aria-hidden="true">03</span>
+            <h2>Get help from your team</h2>
+            <p>Your support team can review, update, and resolve requests in one workspace.</p>
+        </article>
+    </div>
+</section>

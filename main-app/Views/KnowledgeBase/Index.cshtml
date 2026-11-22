@@ -1,0 +1,176 @@
+@{
+    ViewData["Title"] = "Knowledge base";
+    var agenticAppUrl = (string)ViewData["AgenticAppUrl"]!;
+}
+
+<h1>Knowledge base</h1>
+<p>Upload approved TXT, Markdown, PDF, or DOCX material. Files are limited to 5 MB.</p>
+
+<form id="document-form" class="card card-body mb-3">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="document-file" class="form-label">Document</label>
+            <input id="document-file" name="file" type="file" class="form-control"
+                   accept=".txt,.md,.pdf,.docx" required />
+        </div>
+        <div class="col-md-6">
+            <label for="document-title" class="form-label">Title</label>
+            <input id="document-title" name="title" class="form-control" maxlength="160" />
+        </div>
+        <div class="col-md-6">
+            <label for="document-category" class="form-label">Category</label>
+            <input id="document-category" name="category" class="form-control" maxlength="80"
+                   value="General" required />
+        </div>
+        <div class="col-md-6">
+            <label for="document-language" class="form-label">Language</label>
+            <select id="document-language" name="language" class="form-select" required>
+                <option value="it">Italian</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button id="upload-document" type="submit" class="btn btn-primary">Upload and index</button>
+        </div>
+    </div>
+</form>
+
+<div id="knowledge-error" class="alert alert-danger" role="alert" hidden></div>
+<div id="knowledge-success" class="alert alert-success" role="status" hidden></div>
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h4 mb-0">Indexed documents</h2>
+    <div class="d-flex gap-2">
+        <button id="reindex-documents" type="button" class="btn btn-outline-primary">Reindex all</button>
+        <button id="refresh-documents" type="button" class="btn btn-outline-secondary">Refresh</button>
+    </div>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr><th>Title</th><th>Source</th><th>Category</th><th>Language</th><th>Version</th><th></th></tr>
+        </thead>
+        <tbody id="documents"></tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const form = document.getElementById("document-form");
+            const apiBase = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(agenticAppUrl));
+            const error = document.getElementById("knowledge-error");
+            const success = document.getElementById("knowledge-success");
+            const tableBody = document.getElementById("documents");
+
+            async function accessToken() {
+                const csrf = form.querySelector('input[name="__RequestVerificationToken"]').value;
+                const response = await fetch("/api/ai/session", {
+                    method: "POST",
+                    headers: { "RequestVerificationToken": csrf }
+                });
+                if (!response.ok) {
+                    throw new Error(`Could not create an AI session (${response.status}).`);
+                }
+                return (await response.json()).accessToken;
+            }
+
+            async function apiRequest(path, options = {}) {
+                const token = await accessToken();
+                const headers = new Headers(options.headers || {});
+                headers.set("Authorization", `Bearer ${token}`);
+                const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.detail || `The AI service returned ${response.status}.`);
+                }
+                return payload;
+            }
+
+            async function loadDocuments() {
+                error.hidden = true;
+                tableBody.replaceChildren();
+                try {
+                    const payload = await apiRequest("/api/v1/admin/documents");
+                    for (const item of payload.documents) {
+                        const row = document.createElement("tr");
+                        for (const value of [
+                            item.title,
+                            item.source,
+                            item.category,
+                            item.language,
+                            item.version
+                        ]) {
+                            const cell = document.createElement("td");
+                            cell.textContent = value;
+                            row.append(cell);
+                        }
+                        const actionCell = document.createElement("td");
+                        const deleteButton = document.createElement("button");
+                        deleteButton.type = "button";
+                        deleteButton.className = "btn btn-sm btn-outline-danger";
+                        deleteButton.textContent = "Delete";
+                        deleteButton.addEventListener("click", async () => {
+                            if (!window.confirm(`Delete "${item.title}" from the index?`)) {
+                                return;
+                            }
+                            try {
+                                await apiRequest(`/api/v1/admin/documents/${encodeURIComponent(item.document_id)}`, {
+                                    method: "DELETE"
+                                });
+                                await loadDocuments();
+                            } catch (requestError) {
+                                showError(requestError);
+                            }
+                        });
+                        actionCell.append(deleteButton);
+                        row.append(actionCell);
+                        tableBody.append(row);
+                    }
+                } catch (requestError) {
+                    showError(requestError);
+                }
+            }
+
+            function showError(requestError) {
+                error.textContent = requestError instanceof Error ? requestError.message : "The request failed.";
+                error.hidden = false;
+            }
+
+            document.getElementById("refresh-documents").addEventListener("click", loadDocuments);
+            document.getElementById("reindex-documents").addEventListener("click", async () => {
+                error.hidden = true;
+                success.hidden = true;
+                try {
+                    const payload = await apiRequest("/api/v1/admin/reindex", { method: "POST" });
+                    success.textContent = `Reindexed ${payload.documents_reindexed} documents.`;
+                    success.hidden = false;
+                    await loadDocuments();
+                } catch (requestError) {
+                    showError(requestError);
+                }
+            });
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                error.hidden = true;
+                success.hidden = true;
+                const formData = new FormData(form);
+                try {
+                    const payload = await apiRequest("/api/v1/admin/documents", {
+                        method: "POST",
+                        body: formData
+                    });
+                    success.textContent = `Indexed ${payload.source} (version ${payload.version}, ${payload.chunks} chunks).`;
+                    success.hidden = false;
+                    form.reset();
+                    document.getElementById("document-category").value = "General";
+                    await loadDocuments();
+                } catch (requestError) {
+                    showError(requestError);
+                }
+            });
+
+            loadDocuments();
+        })();
+    </script>
+}

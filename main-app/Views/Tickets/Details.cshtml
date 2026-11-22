@@ -1,0 +1,67 @@
+@model Ticket
+@{
+    ViewData["Title"] = $"Ticket #{Model.Id}";
+}
+
+<div class="ticket-detail-header">
+    <div class="page-intro mb-0">
+        <span class="eyebrow">Ticket #@Model.Id</span>
+        <h1>@Model.Title</h1>
+        <p class="page-subtitle">Review the request details and latest status.</p>
+    </div>
+    <div class="ticket-detail-actions">
+        @if (User.IsInRole("Agent") || User.IsInRole("Admin"))
+        {
+            <a asp-controller="Help" asp-action="Index" asp-route-ticketId="@Model.Id" class="btn btn-outline-primary">
+                Get triage and reply suggestions
+            </a>
+        }
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit ticket</a>
+    </div>
+</div>
+
+<section class="detail-card">
+    <div class="ticket-meta-grid">
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Status</span>
+            <span class="ticket-meta-value">
+                <span class="status-badge status-@Model.Status.ToString().ToLowerInvariant()">@Model.Status</span>
+            </span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Priority</span>
+            <span class="ticket-meta-value">
+                <span class="priority-badge priority-@Model.Priority.ToString().ToLowerInvariant()">@Model.Priority</span>
+            </span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Category</span>
+            <span class="ticket-meta-value">@Model.Category</span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Assigned to</span>
+            <span class="ticket-meta-value">@(Model.AssignedTo?.DisplayName ?? "Unassigned")</span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Created by</span>
+            <span class="ticket-meta-value">@Model.CreatedBy.DisplayName</span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Created (UTC)</span>
+            <span class="ticket-meta-value">@Model.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</span>
+        </div>
+        <div class="ticket-meta-item">
+            <span class="ticket-meta-label">Updated (UTC)</span>
+            <span class="ticket-meta-value">@Model.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")</span>
+        </div>
+    </div>
+
+    <div class="ticket-description">
+        <h2>Description</h2>
+        <div class="ticket-description-body">@Model.Description</div>
+    </div>
+</section>
+
+<div class="mt-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">Back to tickets</a>
+</div>

@@ -1,0 +1,169 @@
+services:
+  main-app:
+    build:
+      context: .
+      dockerfile: main-app/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "https://+:8080;http://+:8081"
+      ASPNETCORE_HTTPS_PORT: "7161"
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/localhost.pem
+      ASPNETCORE_Kestrel__Certificates__Default__KeyPath: /https/localhost.key
+      ConnectionStrings__DefaultConnection: Data Source=/app/data/service-desk.db
+      Ai__JwtSigningKey: ${AI_JWT_SIGNING_KEY:?Set AI_JWT_SIGNING_KEY in .env}
+      SeedUsers__AdminEmail: ${DEMO_ADMIN_EMAIL:-admin@local.test}
+      SeedUsers__AdminPassword: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD in .env}
+      SeedUsers__AgentEmail: ${DEMO_AGENT_EMAIL:-agent@local.test}
+      SeedUsers__AgentPassword: ${DEMO_AGENT_PASSWORD:?Set DEMO_AGENT_PASSWORD in .env}
+      AgenticApp__PublicBaseUrl: ${AGENTIC_APP_PUBLIC_URL:-https://localhost:8000}
+      Monitoring__GrafanaDashboardUrl: "${GRAFANA_ROOT_URL:-http://localhost:3000/}d/service-desk-operations/service-desk-operations?orgId=1&refresh=30s"
+    ports:
+      - "127.0.0.1:7161:8080"
+    expose:
+      - "8081"
+    volumes:
+      - ./dev-certs:/https:ro
+      - main_app_data:/app/data
+    networks:
+      - service-desk
+    restart: unless-stopped
+
+  agentic-app:
+    build:
+      context: ./agentic-app
+      dockerfile: Dockerfile
+    environment:
+      AI_JWT_SIGNING_KEY: ${AI_JWT_SIGNING_KEY:?Set AI_JWT_SIGNING_KEY in .env}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
+      OPENAI_TICKET_CONTEXT_ENABLED: ${OPENAI_TICKET_CONTEXT_ENABLED:-false}
+      OPENAI_KNOWLEDGE_CONTEXT_ENABLED: ${OPENAI_KNOWLEDGE_CONTEXT_ENABLED:-false}
+      WEB_SEARCH_ENABLED: ${WEB_SEARCH_ENABLED:-false}
+      MAIN_APP_API_URL: http://main-app:8081
+      QDRANT_URL: http://qdrant:6333
+      DATA_DIR: /app/data
+      EMBEDDING_CACHE_DIR: /app/data/models
+      RERANKING_ENABLED: ${RERANKING_ENABLED:-true}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3-int8}
+      SEED_DEMO_KB: "true"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://localhost:7161}
+      PROMETHEUS_PORT: "8001"
+      PROMETHEUS_ADDR: "0.0.0.0"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./dev-certs:/https:ro
+      - agentic_data:/app/data
+    networks:
+      - service-desk
+      - metrics
+    restart: unless-stopped
+    depends_on:
+      main-app:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import ssl, urllib.request; urllib.request.urlopen('https://localhost:8000/health', context=ssl.create_default_context(cafile='/https/localhost.pem'), timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
+
+  qdrant:
+    image: qdrant/qdrant:v1.16.2
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - service-desk
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 2 bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - metrics
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      agentic-app:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_SERVER_DOMAIN: ${NGROK_GRAFANA_DOMAIN:-localhost}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000/}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  ngrok-grafana:
+    image: ngrok/ngrok:3
+    command:
+      - http
+      - --url
+      - https://${NGROK_GRAFANA_DOMAIN:-}
+      - --inspect=false
+      - grafana:3000
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    profiles:
+      - ngrok
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      grafana:
+        condition: service_started
+
+volumes:
+  main_app_data:
+  agentic_data:
+  qdrant_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  service-desk:
+    driver: bridge
+  metrics:
+    driver: bridge
+    internal: true
+  monitoring:
+    driver: bridge

@@ -1,0 +1,57 @@
+@{
+    ViewData["Title"] = "Operations monitoring";
+    var grafanaDashboardUrl = (string)ViewData["GrafanaDashboardUrl"]!;
+}
+
+<div class="page-intro">
+    <span class="eyebrow">Admin workspace</span>
+    <h1>Operations monitoring</h1>
+    <p class="page-subtitle">
+        Review live service health and operational trends. The charts open in the monitoring tools configured for this local deployment.
+    </p>
+</div>
+
+<section class="operations-launch-panel mb-4" aria-labelledby="live-monitoring-title">
+    <div>
+        <h2 id="live-monitoring-title">Live monitoring</h2>
+        <p>Open the preconfigured dashboard for current measurements, trends, and service health. Grafana reads metrics from Prometheus over the Docker network.</p>
+    </div>
+    <div class="operations-actions">
+        <a class="btn btn-primary" href="@grafanaDashboardUrl"
+           target="_blank" rel="noopener noreferrer">
+            Open Grafana dashboard
+        </a>
+        <a class="btn btn-outline-primary" href="http://localhost:9090/targets"
+           target="_blank" rel="noopener noreferrer">
+            Check Prometheus targets
+        </a>
+    </div>
+</section>
+
+<div class="operations-metrics-grid">
+    <section class="operations-metric-card" aria-labelledby="api-metrics-title">
+        <span class="feature-index" aria-hidden="true">01</span>
+        <h2 id="api-metrics-title">Web and API</h2>
+        <p>Request volume, HTTP 5xx error rate, p95 latency, and traffic by route.</p>
+    </section>
+    <section class="operations-metric-card" aria-labelledby="ai-metrics-title">
+        <span class="feature-index" aria-hidden="true">02</span>
+        <h2 id="ai-metrics-title">AI and knowledge</h2>
+        <p>Copilot suggestions, knowledge-search outcomes, AI latency, OpenAI outcomes, and token rate.</p>
+    </section>
+    <section class="operations-metric-card" aria-labelledby="runtime-metrics-title">
+        <span class="feature-index" aria-hidden="true">03</span>
+        <h2 id="runtime-metrics-title">Service health</h2>
+        <p>Metrics exporter availability, agentic-app memory, and CPU utilization.</p>
+    </section>
+</div>
+
+<aside class="operations-privacy-note mt-4" role="note">
+    <strong>Privacy:</strong> These metrics are aggregate operational measurements. They do not contain ticket text,
+    prompts, names, or ticket/user IDs. Grafana requires its configured admin sign-in. If the optional ngrok tunnel is
+    enabled, only Grafana is exposed; Prometheus remains on the local/Docker network.
+</aside>
+
+<p class="form-text mt-3">
+    Prometheus target status is local-only and does not require sign-in. It is not exposed through ngrok.
+</p>

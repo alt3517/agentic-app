@@ -1,0 +1,2 @@
+Failed to load resource: the server responded with a status of 502 (Bad Gateway) in agento copilot e quanti documenti sono presenti: È presente 1 documento: [KB-1]. ma sono 30 in Ask a question su knowledge base
+Ho trovato una causa concreta del 400: l’app chiedeva la modalità JSON legacy (json_object), mentre la documentazione OpenAI indica che per i modelli recenti, incluso GPT-6, va usato Structured Outputs (json_schema). Il payload era di 1.872 caratteri, quindi non era un problema di dimensione. Sostituisco il formato legacy con uno schema strict compatibile.

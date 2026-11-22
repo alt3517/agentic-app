@@ -1,0 +1,82 @@
+@model IReadOnlyList<Ticket>
+@{
+    ViewData["Title"] = "Tickets";
+}
+
+<div class="d-flex justify-content-between page-heading-row mb-4">
+    <div class="page-intro mb-0">
+        <span class="eyebrow">Support workspace</span>
+        <h1>Tickets</h1>
+        <p class="page-subtitle">Review your requests and keep track of what needs attention.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Create ticket</a>
+</div>
+
+<form asp-action="Index" method="get" class="filter-panel">
+    <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-6">
+            <label for="ticket-search" class="form-label">Search tickets</label>
+            <input id="ticket-search" name="q" value="@ViewData["Query"]" class="form-control" placeholder="Search title or description" />
+        </div>
+        <div class="col-12 col-md-4">
+            <label for="ticket-status" class="form-label">Status</label>
+            <select id="ticket-status" name="status" class="form-select" asp-items="Html.GetEnumSelectList<TicketStatus>()">
+                <option value="">All statuses</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+            <button type="submit" class="btn btn-outline-primary">Apply filters</button>
+        </div>
+    </div>
+</form>
+
+@if (Model.Count == 0)
+{
+    <section class="empty-state">
+        <h2>No tickets found</h2>
+        <p>Try a different search or create a request to get started.</p>
+        <a asp-action="Create" class="btn btn-primary">Create a ticket</a>
+    </section>
+}
+else
+{
+    <div class="d-flex justify-content-end mb-2">
+        <span class="ticket-count">@Model.Count ticket@(Model.Count == 1 ? "" : "s")</span>
+    </div>
+    <div class="ticket-table-wrap">
+        <table class="table align-middle ticket-table">
+            <thead>
+                <tr>
+                    <th scope="col">Ticket</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Updated (UTC)</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var ticket in Model)
+            {
+                <tr>
+                    <td data-label="Ticket" class="ticket-title-cell">
+                        <span class="ticket-number">#@ticket.Id</span>
+                        <a asp-action="Details" asp-route-id="@ticket.Id" class="ticket-title-link">@ticket.Title</a>
+                    </td>
+                    <td data-label="Category">@ticket.Category</td>
+                    <td data-label="Status">
+                        <span class="status-badge status-@ticket.Status.ToString().ToLowerInvariant()">@ticket.Status</span>
+                    </td>
+                    <td data-label="Priority">
+                        <span class="priority-badge priority-@ticket.Priority.ToString().ToLowerInvariant()">@ticket.Priority</span>
+                    </td>
+                    <td data-label="Updated (UTC)">@ticket.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td data-label="Actions" class="ticket-action-cell">
+                        <a asp-action="Edit" asp-route-id="@ticket.Id" class="ticket-action-link">Update</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

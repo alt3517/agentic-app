@@ -1,0 +1,350 @@
+@{
+    ViewData["Title"] = "AI help";
+    var agenticAppUrl = (string)ViewData["AgenticAppUrl"]!;
+    var ticketId = ViewData["TicketId"] as int?;
+}
+
+<h1>AI help</h1>
+@if (User.IsInRole("Agent") || User.IsInRole("Admin"))
+{
+    <p>Use Agent Copilot for suggestions on an existing ticket, or ask the separate assistant a written question.</p>
+}
+else
+{
+    <p>Ask about the knowledge base, your tickets, or current information from the web.</p>
+}
+<div class="alert alert-warning" role="note">
+    When the selected feature is enabled, its request may send data to OpenAI. Do not enter passwords, access
+    tokens, payment information, or other data that has not been approved for the configured provider.
+</div>
+
+@if (User.IsInRole("Agent") || User.IsInRole("Admin"))
+{
+    <section class="copilot-panel mb-4" aria-labelledby="copilot-title">
+        <div class="copilot-heading">
+            <div>
+                <span class="eyebrow">For agents and administrators</span>
+                <h2 id="copilot-title">Agent Copilot</h2>
+                <p class="page-subtitle">
+                    Get a second opinion on an existing ticket: suggested triage, missing details, and a reply draft.
+                    It will not change the ticket or send the reply.
+                </p>
+            </div>
+            <span class="copilot-access-badge">Support staff</span>
+        </div>
+
+        <div class="copilot-workflow" aria-label="What the Copilot does">
+            <div class="copilot-workflow-item">
+                <span class="copilot-step-index">01</span>
+                <div>
+                    <strong>Reviews the ticket</strong>
+                    <p>Uses its title, description, category, priority, and status.</p>
+                </div>
+            </div>
+            <div class="copilot-workflow-item">
+                <span class="copilot-step-index">02</span>
+                <div>
+                    <strong>Suggests triage</strong>
+                    <p>Summarizes the issue and recommends a category, priority, and follow-up questions.</p>
+                </div>
+            </div>
+            <div class="copilot-workflow-item">
+                <span class="copilot-step-index">03</span>
+                <div>
+                    <strong>Drafts a reply</strong>
+                    <p>Provides text for you to review and send yourself; it is not sent automatically.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="copilot-form" class="copilot-form">
+            <div class="copilot-ticket-input">
+                <label for="copilot-ticket-id" class="form-label">Ticket number <span class="text-danger">*</span></label>
+                <input id="copilot-ticket-id" type="number" min="1" inputmode="numeric"
+                       class="form-control" value="@(ticketId?.ToString() ?? string.Empty)"
+                       placeholder="For example, 42" aria-describedby="copilot-ticket-help" required />
+                <div id="copilot-ticket-help" class="form-text">
+                    Enter the number shown as <strong>#42</strong> on the ticket. Open Copilot from a ticket’s detail
+                    page to fill this in automatically. This is the only input Copilot needs; you do not need to write a prompt.
+                </div>
+            </div>
+            <button id="copilot-submit" type="submit" class="btn btn-primary">Generate suggestions</button>
+        </form>
+
+        <div class="copilot-privacy" role="note">
+            <strong>Data sharing:</strong> Ticket analysis is off by default and is available only when the administrator
+            explicitly enables ticket sharing. If enabled, the ticket title, description, category, priority, and status are sent to the configured AI provider;
+            the ticket number is used to retrieve the ticket and is not included in that content. Knowledge excerpts are
+            included only with a separate administrator opt-in. The result is a suggestion, not a ticket update.
+        </div>
+        <p class="form-text mb-0 mt-2">Always check the recommendation and any cited sources before using the draft.</p>
+
+        <div id="copilot-error" class="alert alert-danger mt-3" role="alert" hidden></div>
+        <div id="copilot-result" class="copilot-result mt-4" aria-live="polite" hidden>
+            <h3 class="h5">Triage suggestion</h3>
+            <dl class="row">
+                <dt class="col-sm-3">Summary</dt><dd id="copilot-summary" class="col-sm-9"></dd>
+                <dt class="col-sm-3">Category</dt><dd id="copilot-category" class="col-sm-9"></dd>
+                <dt class="col-sm-3">Priority</dt><dd id="copilot-priority" class="col-sm-9"></dd>
+                <dt class="col-sm-3">Reason</dt><dd id="copilot-rationale" class="col-sm-9"></dd>
+                <dt class="col-sm-3">Missing information</dt><dd id="copilot-missing" class="col-sm-9"></dd>
+            </dl>
+            <h3 class="h5 mt-3">Reply draft (not sent)</h3>
+            <textarea id="copilot-reply" class="form-control" rows="5" aria-label="Suggested reply draft"></textarea>
+            <h3 class="h5 mt-3">Retrieved knowledge sources</h3>
+            <p id="copilot-knowledge-count" class="form-text" hidden></p>
+            <ul id="copilot-sources"></ul>
+        </div>
+    </section>
+}
+
+<section class="general-help-section" aria-labelledby="general-help-title">
+    <h2 id="general-help-title" class="h4">Ask a question</h2>
+    <p class="page-subtitle mb-3">
+        This separate assistant takes a question you write. Choose a knowledge, ticket, or web source below.
+        It does not run ticket triage.
+    </p>
+<form id="help-form" class="card card-body mb-3">
+    @Html.AntiForgeryToken()
+    <div class="mb-3">
+        <label for="mode" class="form-label">Help source</label>
+        <select id="mode" class="form-select">
+            <option value="knowledge">Knowledge base</option>
+            <option value="ticket">My tickets</option>
+            <option value="web">Web search</option>
+        </select>
+    </div>
+    <div id="ticket-id-group" class="mb-3" hidden>
+        <label for="ticket-id" class="form-label">Ticket number (optional)</label>
+        <input id="ticket-id" type="number" min="1" class="form-control" />
+        <div class="form-text">Leave blank to search only tickets you are allowed to view.</div>
+    </div>
+    <div class="mb-3">
+        <label for="question" class="form-label">Your question</label>
+        <textarea id="question" class="form-control" rows="4" maxlength="4000" required></textarea>
+    </div>
+    <p id="knowledge-notice" class="form-text">
+        When enabled by the service administrator, your question and retrieved knowledge excerpts are sent to
+        OpenAI. This is disabled unless <code>OPENAI_KNOWLEDGE_CONTEXT_ENABLED</code> is explicitly enabled.
+    </p>
+    <p id="ticket-notice" class="form-text" hidden>
+        When enabled by the service administrator, your question and ticket fields you are authorized to view are
+        sent to OpenAI. Knowledge excerpts are included only with the separate knowledge sharing opt-in.
+    </p>
+    <p id="web-notice" class="form-text" hidden>
+        If enabled by the service administrator, your question is sent to OpenAI web search. Ticket and
+        knowledge-base context are not included. Web search is disabled unless <code>WEB_SEARCH_ENABLED</code>
+        is explicitly enabled.
+    </p>
+    <div>
+        <button id="submit-help" type="submit" class="btn btn-primary">Ask</button>
+    </div>
+</form>
+
+<div id="help-error" class="alert alert-danger" role="alert" hidden></div>
+<section id="help-result" class="card card-body" aria-live="polite" hidden>
+    <h2 class="h4">Answer</h2>
+    <p id="answer" class="text-break"></p>
+    <p id="knowledge-count-display" class="form-text" hidden></p>
+    <h3 id="sources-heading" class="h5" hidden>Sources</h3>
+    <ul id="sources"></ul>
+</section>
+</section>
+
+@section Scripts {
+    <script>
+        (() => {
+            const form = document.getElementById("help-form");
+            const mode = document.getElementById("mode");
+            const ticketGroup = document.getElementById("ticket-id-group");
+            const knowledgeNotice = document.getElementById("knowledge-notice");
+            const ticketNotice = document.getElementById("ticket-notice");
+            const webNotice = document.getElementById("web-notice");
+            const button = document.getElementById("submit-help");
+            const error = document.getElementById("help-error");
+            const result = document.getElementById("help-result");
+            const answer = document.getElementById("answer");
+            const knowledgeCountDisplay = document.getElementById("knowledge-count-display");
+            const sources = document.getElementById("sources");
+            const sourcesHeading = document.getElementById("sources-heading");
+            const apiBase = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(agenticAppUrl));
+
+            const updateDataNotice = () => {
+                knowledgeNotice.hidden = mode.value !== "knowledge";
+                ticketNotice.hidden = mode.value !== "ticket";
+                webNotice.hidden = mode.value !== "web";
+            };
+            mode.addEventListener("change", () => {
+                ticketGroup.hidden = mode.value !== "ticket";
+                updateDataNotice();
+            });
+            updateDataNotice();
+
+            const copilotForm = document.getElementById("copilot-form");
+            if (copilotForm) {
+                const copilotButton = document.getElementById("copilot-submit");
+                const copilotError = document.getElementById("copilot-error");
+                const copilotResult = document.getElementById("copilot-result");
+                copilotForm.addEventListener("submit", async (event) => {
+                    event.preventDefault();
+                    copilotError.hidden = true;
+                    copilotResult.hidden = true;
+                    copilotButton.disabled = true;
+                    copilotButton.textContent = "Analyzing ticket…";
+
+                    try {
+                        const csrf = form.querySelector('input[name="__RequestVerificationToken"]').value;
+                        const sessionResponse = await fetch("/api/ai/session", {
+                            method: "POST",
+                            headers: { "RequestVerificationToken": csrf }
+                        });
+                        if (!sessionResponse.ok) {
+                            throw new Error(`Could not create an AI session (${sessionResponse.status}).`);
+                        }
+                        const session = await sessionResponse.json();
+                        const ticketId = Number(document.getElementById("copilot-ticket-id").value);
+                        const response = await fetch(
+                            `${apiBase}/api/v1/agent/tickets/${ticketId}/copilot`,
+                            { method: "POST", headers: { "Authorization": `Bearer ${session.accessToken}` } }
+                        );
+                        const payload = await response.json();
+                        if (!response.ok) {
+                            throw new Error(payload.detail || `The AI service returned ${response.status}.`);
+                        }
+
+                        document.getElementById("copilot-summary").textContent = payload.summary;
+                        document.getElementById("copilot-category").textContent = payload.suggested_category;
+                        document.getElementById("copilot-priority").textContent = payload.suggested_priority;
+                        document.getElementById("copilot-rationale").textContent = payload.priority_rationale;
+                        const missing = document.getElementById("copilot-missing");
+                        missing.replaceChildren();
+                        for (const text of payload.missing_information || []) {
+                            const item = document.createElement("div");
+                            item.textContent = text;
+                            missing.append(item);
+                        }
+                        document.getElementById("copilot-reply").value = payload.reply_draft;
+                        const knowledgeCount = document.getElementById("copilot-knowledge-count");
+                        if (Number.isInteger(payload.knowledge_document_count)) {
+                            const sourceCount = (payload.sources || []).length;
+                            const sourceLabel = sourceCount === 1 ? "relevant source" : "relevant sources";
+                            const documentLabel = payload.knowledge_document_count === 1
+                                ? "indexed document"
+                                : "indexed documents";
+                            knowledgeCount.textContent =
+                                `${sourceCount} ${sourceLabel} retrieved from ${payload.knowledge_document_count} ${documentLabel}.`;
+                            knowledgeCount.hidden = false;
+                        } else {
+                            knowledgeCount.hidden = true;
+                        }
+                        const copilotSources = document.getElementById("copilot-sources");
+                        copilotSources.replaceChildren();
+                        for (const source of payload.sources || []) {
+                            const item = document.createElement("li");
+                            const page = source.page ? `, page ${source.page}` : "";
+                            item.textContent = `${source.label}: ${source.title} (${source.source}${page})`;
+                            copilotSources.append(item);
+                        }
+                        copilotResult.hidden = false;
+                    } catch (requestError) {
+                        copilotError.textContent = requestError instanceof Error
+                            ? requestError.message
+                            : "The request failed.";
+                        copilotError.hidden = false;
+                    } finally {
+                        copilotButton.disabled = false;
+                        copilotButton.textContent = "Generate suggestions";
+                    }
+                });
+            }
+
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                error.hidden = true;
+                result.hidden = true;
+                button.disabled = true;
+                button.textContent = "Working…";
+
+                try {
+                    const csrf = form.querySelector('input[name="__RequestVerificationToken"]').value;
+                    const sessionResponse = await fetch("/api/ai/session", {
+                        method: "POST",
+                        headers: { "RequestVerificationToken": csrf }
+                    });
+                    if (!sessionResponse.ok) {
+                        throw new Error(`Could not create an AI session (${sessionResponse.status}).`);
+                    }
+                    const session = await sessionResponse.json();
+                    const request = {
+                        question: document.getElementById("question").value.trim(),
+                        mode: mode.value
+                    };
+                    const ticketId = document.getElementById("ticket-id").value;
+                    if (mode.value === "ticket" && ticketId) {
+                        request.ticket_id = Number(ticketId);
+                    }
+                    const response = await fetch(`${apiBase}/api/v1/help`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${session.accessToken}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(request)
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.detail || `The AI service returned ${response.status}.`);
+                    }
+
+                    answer.textContent = payload.answer;
+                    if (mode.value === "knowledge" && Number.isInteger(payload.knowledge_document_count)) {
+                        const knowledgeSourceCount = (payload.sources || [])
+                            .filter(source => source.type === "knowledge-base")
+                            .length;
+                        const sourceLabel = knowledgeSourceCount === 1 ? "relevant source" : "relevant sources";
+                        knowledgeCountDisplay.textContent =
+                            `Retrieved ${knowledgeSourceCount} ${sourceLabel} from ${payload.knowledge_document_count} indexed documents.`;
+                        knowledgeCountDisplay.hidden = false;
+                    } else {
+                        knowledgeCountDisplay.hidden = true;
+                    }
+                    sources.replaceChildren();
+                    for (const source of payload.sources || []) {
+                        const item = document.createElement("li");
+                        if (source.url) {
+                            let citationUrl;
+                            try {
+                                citationUrl = new URL(source.url);
+                            } catch {
+                                continue;
+                            }
+                            if (citationUrl.protocol !== "https:" && citationUrl.protocol !== "http:") {
+                                continue;
+                            }
+                            const link = document.createElement("a");
+                            link.textContent = source.title || citationUrl.href;
+                            link.href = citationUrl.href;
+                            link.target = "_blank";
+                            link.rel = "noopener noreferrer";
+                            item.append(link);
+                        } else if (source.type === "ticket") {
+                            item.textContent = `${source.label}: Ticket #${source.ticket_id} — ${source.title}`;
+                        } else {
+                            const page = source.page ? `, page ${source.page}` : "";
+                            item.textContent = `${source.label}: ${source.title} (${source.source}${page})`;
+                        }
+                        sources.append(item);
+                    }
+                    sourcesHeading.hidden = sources.childElementCount === 0;
+                    result.hidden = false;
+                } catch (requestError) {
+                    error.textContent = requestError instanceof Error ? requestError.message : "The request failed.";
+                    error.hidden = false;
+                } finally {
+                    button.disabled = false;
+                    button.textContent = "Ask";
+                }
+            });
+        })();
+    </script>
+}
